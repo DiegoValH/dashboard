@@ -3,16 +3,16 @@ import pandas as pd
 import plotly.express as px
 
 # =========================
-# CONFIGURACIÓN
+# CONFIGURAÇÃO
 # =========================
 st.set_page_config(layout="wide")
 
 # =========================
-# CARGA DE DATOS
+# CARGA DE DADOS
 # =========================
-df = pd.read_csv("vendas.csv", sep=";", decimal=",")
+df = pd.read_csv("vendas.csv", sep=";", decimal=",", encoding="latin1")
 
-# Limpiar columna Total (ERROR SOLUCIONADO)
+# Limpar coluna Total
 df["Total"] = (
     df["Total"]
     .astype(str)
@@ -23,22 +23,21 @@ df["Total"] = (
 df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
 
 # =========================
-# TRANSFORMACIONES
+# TRANSFORMAÇÕES
 # =========================
 
-# Fechas
 df["Date"] = pd.to_datetime(df["Date"])
 df = df.sort_values("Date")
 df["Month"] = df["Date"].dt.to_period("M").astype(str)
 
-# Cambiar nombres de ciudades
+# Cidades
 df["City"] = df["City"].replace({
-    "Yangon": "Brasilia",
+    "Yangon": "Brasília",
     "Mandalay": "São Paulo",
     "Naypyitaw": "Curitiba"
 })
 
-# Traducir métodos de pago
+# Pagamentos
 df["Payment"] = df["Payment"].replace({
     "Ewallet": "Carteira digital",
     "Cash": "Dinheiro",
@@ -61,7 +60,7 @@ st.title("Basic Analysis")
 # =========================
 total_faturamento = df_filtered["Total"].sum()
 num_vendas = len(df_filtered)
-ticket_promedio = total_faturamento / num_vendas if num_vendas > 0 else 0
+ticket_medio = total_faturamento / num_vendas if num_vendas > 0 else 0
 
 city_top = (
     df_filtered.groupby("City")["Total"]
@@ -72,12 +71,11 @@ city_top = (
 
 payment_top = df_filtered["Payment"].value_counts().idxmax()
 
-# Layout KPIs
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 
 kpi1.metric("Faturamento Total", f"R$ {total_faturamento:,.2f}")
 kpi2.metric("N° Vendas", num_vendas)
-kpi3.metric("Ticket Promédio", f"R$ {ticket_promedio:,.2f}")
+kpi3.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
 kpi4.metric("Cidade Top", city_top)
 kpi5.metric("Pagamento Top", payment_top)
 
@@ -89,51 +87,64 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 col3, col4, col5 = st.columns(3)
 
-# Faturamento por día
-fig_date = px.bar(
-    df_filtered,
-    x="Date",
-    y="Total",
-    color="City",
-    title="Faturamento por dia"
-)
+fig_date = px.bar(df_filtered, x="Date", y="Total", color="City",
+                  title="Faturamento por dia")
 col1.plotly_chart(fig_date, use_container_width=True)
 
-# Faturamento por producto
-fig_prod = px.bar(
-    df_filtered,
-    x="Product line",
-    y="Total",
-    color="City",
-    title="Faturamento por tipo de produto"
-)
+fig_prod = px.bar(df_filtered, x="Product line", y="Total", color="City",
+                  title="Faturamento por tipo de produto")
 col2.plotly_chart(fig_prod, use_container_width=True)
 
-# Faturamento por ciudad
 city_total = df_filtered.groupby("City")[["Total"]].sum().reset_index()
-fig_city = px.bar(
-    city_total,
-    x="City",
-    y="Total",
-    title="Faturamento por cidade"
-)
+fig_city = px.bar(city_total, x="City", y="Total",
+                  title="Faturamento por cidade")
 col3.plotly_chart(fig_city, use_container_width=True)
 
-# Tipo de pago
-fig_kind = px.pie(
-    df_filtered,
-    values="Total",
-    names="Payment",
-    title="Faturamento por tipo de pagamento"
-)
+fig_kind = px.pie(df_filtered, values="Total", names="Payment",
+                  title="Faturamento por tipo de pagamento")
 col4.plotly_chart(fig_kind, use_container_width=True)
 
-# Rating promedio por ciudad
 city_rating = df_filtered.groupby("City")[["Rating"]].mean().reset_index()
-fig_rating = px.bar(
-    city_rating,
-    x="City",
-    y="Rating",
-    title="Avaliação Média"
-)
+fig_rating = px.bar(city_rating, x="City", y="Rating",
+                    title="Avaliação Média")
 col5.plotly_chart(fig_rating, use_container_width=True)
+
+# =========================
+# DATATABLE CLIENTES
+# =========================
+st.markdown("---")
+st.subheader("Tabela de Clientes")
+
+# Campo de busca
+search = st.text_input("Buscar cliente")
+
+df_table = df_filtered[[
+    "name",
+    "age",
+    "Gender",
+    "City",
+    "Product line",
+    "Quantity",
+    "Payment"
+]].copy()
+
+# Renombrar columnas (Português Brasil)
+df_table.columns = [
+    "Nome",
+    "Idade",
+    "Gênero",
+    "Cidade",
+    "Linha de Produto",
+    "Quantidade",
+    "Pagamento"
+]
+
+# Filtro de búsqueda
+if search:
+    df_table = df_table[
+        df_table.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)
+    ]
+
+# Mostrar tabla
+st.dataframe(df_table, use_container_width=True)
+
